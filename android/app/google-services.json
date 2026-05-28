@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "859334905645",
+    "project_id": "animu-7037a",
+    "storage_bucket": "animu-7037a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859334905645:android:1978e829c0cb7f9a354da4",
+        "android_client_info": {
+          "package_name": "com.animu.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "859334905645-audb9634fd9d305g2vpgvt71ra7jnh7k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.animu.app",
+            "certificate_hash": "92b32e6dedba1da72cfdad7982b4ce311180374f"
+          }
+        },
+        {
+          "client_id": "859334905645-d1f7jpoq006rqrodvu3uthubub4l6cpe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_AM-XDSPPABCVnaD-lL7s6aFt6DK4pbE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "859334905645-d1f7jpoq006rqrodvu3uthubub4l6cpe.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "859334905645-ccv77nnniot0kl10cmu59l3ccjp8kmj8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.aninmeLibrary"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

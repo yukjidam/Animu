@@ -1,0 +1,64 @@
+name: anime_library
+description: "Modern anime tracking app powered by Jikan API."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_storage: ^12.3.4
+  image_picker: ^1.1.2
+  image_cropper: ^8.0.2
+
+
+  flutter_svg: ^2.0.10+1
+  cupertino_icons: ^1.0.8
+
+  # API
+  http: ^1.2.2
+
+  # Images
+  cached_network_image: ^3.4.1
+
+  # Fonts
+  google_fonts: ^6.2.1
+
+  # Animations
+  flutter_animate: ^4.5.0
+
+  # Firebase CORE (must align properly)
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.0
+  google_sign_in: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/animu_icon.svg
+    - assets/icons/
+    - assets/images/anime-drama.gif
+
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Regular.ttf
+        - asset: assets/fonts/Nunito-Bold.ttf
+          weight: 700
+
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
