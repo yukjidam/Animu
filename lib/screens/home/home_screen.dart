@@ -49,12 +49,12 @@ class _AniBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceDark,
-        border: const Border(
-          top: BorderSide(color: AppTheme.divider, width: 1),
-        ),
+        color: t.surfaceDark,
+        border: Border(top: BorderSide(color: t.divider, width: 1)),
       ),
       child: SafeArea(
         child: Padding(
@@ -117,6 +117,8 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
+
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
@@ -125,7 +127,7 @@ class _NavItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
           color: _selected
-              ? AppTheme.primaryViolet.withOpacity(0.15)
+              ? t.primaryViolet.withOpacity(0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
         ),
@@ -134,7 +136,7 @@ class _NavItem extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: _selected ? AppTheme.primaryViolet : AppTheme.textMuted,
+              color: _selected ? t.primaryViolet : AppTheme.textMuted,
               size: 24,
             ),
             const SizedBox(height: 3),
@@ -144,7 +146,7 @@ class _NavItem extends StatelessWidget {
                 fontFamily: 'Nunito',
                 fontSize: 10,
                 fontWeight: _selected ? FontWeight.w800 : FontWeight.w500,
-                color: _selected ? AppTheme.primaryViolet : AppTheme.textMuted,
+                color: _selected ? t.primaryViolet : AppTheme.textMuted,
               ),
             ),
           ],

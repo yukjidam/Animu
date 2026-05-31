@@ -9,7 +9,6 @@ import '../detail/anime_detail_screen.dart';
 
 class TopAnimeScreen extends StatefulWidget {
   final int initialFilterIndex;
-
   const TopAnimeScreen({super.key, this.initialFilterIndex = 0});
 
   @override
@@ -67,13 +66,11 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
         _hasMore = true;
       });
     }
-
     final data = await _api.getTopAnime(
       limit: 20,
       page: _page,
       filter: _filters[_selectedFilter].filter,
     );
-
     if (!mounted) return;
     setState(() {
       _anime = data;
@@ -85,13 +82,11 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
   Future<void> _fetchMore() async {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
-
     final data = await _api.getTopAnime(
       limit: 20,
       page: _page + 1,
       filter: _filters[_selectedFilter].filter,
     );
-
     if (!mounted) return;
     setState(() {
       _page += 1;
@@ -109,10 +104,11 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: t.backgroundDark,
       appBar: AppBar(
-        backgroundColor: AppTheme.backgroundDark,
+        backgroundColor: t.backgroundDark,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(
@@ -134,7 +130,7 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
       ),
       body: Column(
         children: [
-          // ── Filter tabs ──────────────────────────────────────────────────
+          // ── Filter tabs ────────────────────────────────────────────────
           SizedBox(
             height: 44,
             child: ListView.separated(
@@ -154,17 +150,14 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
                     ),
                     decoration: BoxDecoration(
                       gradient: selected
-                          ? const LinearGradient(
-                              colors: [
-                                AppTheme.primaryViolet,
-                                AppTheme.accentSakura,
-                              ],
+                          ? LinearGradient(
+                              colors: [t.primaryViolet, t.accentSakura],
                             )
                           : null,
-                      color: selected ? null : AppTheme.cardDark,
+                      color: selected ? null : t.cardDark,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: selected ? Colors.transparent : AppTheme.divider,
+                        color: selected ? Colors.transparent : t.divider,
                       ),
                     ),
                     child: Text(
@@ -184,13 +177,11 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
 
           const SizedBox(height: 8),
 
-          // ── Grid ─────────────────────────────────────────────────────────
+          // ── Grid ───────────────────────────────────────────────────────
           Expanded(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.primaryViolet,
-                    ),
+                ? Center(
+                    child: CircularProgressIndicator(color: t.primaryViolet),
                   )
                 : _anime.isEmpty
                 ? const Center(
@@ -214,9 +205,8 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
                         ),
                     itemCount: _anime.length + (_loadingMore ? 3 : 0),
                     itemBuilder: (context, index) {
-                      // Skeleton placeholders while loading more
                       if (index >= _anime.length) {
-                        return _SkeletonCard();
+                        return _SkeletonCard(t: t);
                       }
                       final anime = _anime[index];
                       return AnimeGridCard(
@@ -240,6 +230,9 @@ class _TopAnimeScreenState extends State<TopAnimeScreen> {
 // ── Skeleton placeholder card ─────────────────────────────────────────────────
 
 class _SkeletonCard extends StatefulWidget {
+  final AppThemeTokens t;
+  const _SkeletonCard({required this.t});
+
   @override
   State<_SkeletonCard> createState() => _SkeletonCardState();
 }
@@ -277,7 +270,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
+                  color: widget.t.cardDark,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -287,7 +280,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
               height: 10,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppTheme.cardDark,
+                color: widget.t.cardDark,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -296,7 +289,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
               height: 10,
               width: 60,
               decoration: BoxDecoration(
-                color: AppTheme.cardDark,
+                color: widget.t.cardDark,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),

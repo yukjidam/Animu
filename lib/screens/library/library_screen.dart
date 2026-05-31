@@ -21,8 +21,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   WatchStatus? _filterStatus;
   bool _isGridView = true;
 
-  // ── Filtered helper ────────────────────────────────────────────────────────
-
   List<AnimeModel> _applyFilter(List<AnimeModel> all) {
     if (_filterStatus == null) return all;
     return all.where((a) => a.watchStatus == _filterStatus).toList();
@@ -33,14 +31,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
       s: all.where((a) => a.watchStatus == s).length,
   };
 
-  // ── Remove with undo snackbar ──────────────────────────────────────────────
-
   void _removeAnime(BuildContext context, AnimeModel anime) async {
+    final t = AppTheme.of(context);
     await _service.removeAnime(anime.id.toString());
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: t.cardDark,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(
@@ -52,19 +49,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
         action: SnackBarAction(
           label: 'Undo',
-          textColor: AppTheme.primaryVioletLight,
+          textColor: t.primaryVioletLight,
           onPressed: () => _service.addAnime(anime),
         ),
       ),
     );
   }
 
-  // ── Status quick-change bottom sheet ──────────────────────────────────────
-
   void _showStatusSheet(BuildContext context, AnimeModel anime) {
+    final t = AppTheme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: t.cardDark,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -74,13 +70,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.divider,
+                  color: t.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -123,15 +118,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    // Guard: make sure the user is logged in
+    final t = AppTheme.of(context);
     final user = FirebaseAuth.instance.currentUser;
+
     if (user == null) {
-      return const Scaffold(
-        backgroundColor: AppTheme.backgroundDark,
+      return Scaffold(
+        backgroundColor: t.backgroundDark,
         body: Center(
           child: Text(
             'Please log in to view your library.',
@@ -142,7 +136,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: t.backgroundDark,
       appBar: AniAppBar(
         title: 'My Library',
         actions: [
@@ -160,7 +154,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           context,
           MaterialPageRoute(builder: (_) => const SearchScreen()),
         ),
-        backgroundColor: AppTheme.primaryViolet,
+        backgroundColor: t.primaryViolet,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: const Text(
           'Add Anime',
@@ -171,19 +165,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
       ),
-
-      // ── Real-time StreamBuilder ──────────────────────────────────────────
       body: StreamBuilder<List<AnimeModel>>(
         stream: _service.libraryStream(),
         builder: (context, snapshot) {
-          // Loading
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryViolet),
+            return Center(
+              child: CircularProgressIndicator(color: t.primaryViolet),
             );
           }
 
-          // Error
           if (snapshot.hasError) {
             return Center(
               child: Column(
@@ -211,22 +201,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
           return Column(
             children: [
-              // ── Filter chips ───────────────────────────────────────────
               _FilterRow(
                 selected: _filterStatus,
                 onSelected: (s) => setState(() => _filterStatus = s),
                 counts: counts,
+                t: t,
               ),
-
-              // ── Body ───────────────────────────────────────────────────
               Expanded(
                 child: filtered.isEmpty
                     ? _EmptyLibrary(status: _filterStatus)
                     : RefreshIndicator(
-                        color: AppTheme.primaryViolet,
-                        backgroundColor: AppTheme.cardDark,
-                        // Pull-to-refresh just triggers a no-op since we
-                        // already have a real-time stream; feels natural.
+                        color: t.primaryViolet,
+                        backgroundColor: t.cardDark,
                         onRefresh: () async {},
                         child: _isGridView
                             ? _GridBody(
@@ -253,7 +239,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 }
 
-// ── Status tile (bottom sheet) ─────────────────────────────────────────────
+// ── Status tile ────────────────────────────────────────────────────────────
 
 class _StatusTile extends StatelessWidget {
   final WatchStatus status;
@@ -268,6 +254,7 @@ class _StatusTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -278,13 +265,11 @@ class _StatusTile extends StatelessWidget {
           fontFamily: 'Nunito',
           fontWeight: FontWeight.w700,
           fontSize: 15,
-          color: isSelected
-              ? AppTheme.primaryVioletLight
-              : AppTheme.textPrimary,
+          color: isSelected ? t.primaryVioletLight : AppTheme.textPrimary,
         ),
       ),
       trailing: isSelected
-          ? const Icon(Icons.check_rounded, color: AppTheme.primaryVioletLight)
+          ? Icon(Icons.check_rounded, color: t.primaryVioletLight)
           : null,
     );
   }
@@ -296,11 +281,13 @@ class _FilterRow extends StatelessWidget {
   final WatchStatus? selected;
   final ValueChanged<WatchStatus?> onSelected;
   final Map<WatchStatus, int> counts;
+  final AppThemeTokens t;
 
   const _FilterRow({
     required this.selected,
     required this.onSelected,
     required this.counts,
+    required this.t,
   });
 
   @override
@@ -331,10 +318,10 @@ class _FilterRow extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryViolet : AppTheme.cardDark,
+                color: isSelected ? t.primaryViolet : t.cardDark,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? AppTheme.primaryViolet : AppTheme.divider,
+                  color: isSelected ? t.primaryViolet : t.divider,
                 ),
               ),
               child: Row(
@@ -361,7 +348,7 @@ class _FilterRow extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Colors.white.withOpacity(0.2)
-                            : AppTheme.primaryViolet.withOpacity(0.2),
+                            : t.primaryViolet.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -372,7 +359,7 @@ class _FilterRow extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           color: isSelected
                               ? Colors.white
-                              : AppTheme.primaryVioletLight,
+                              : t.primaryVioletLight,
                         ),
                       ),
                     ),
@@ -418,7 +405,7 @@ class _GridBody extends StatelessWidget {
           child: Dismissible(
             key: ValueKey(anime.id.toString()),
             direction: DismissDirection.vertical,
-            background: _DismissBackground(),
+            background: const _DismissBackground(),
             onDismissed: (_) => onDelete(anime),
             child: AnimeGridCard(
               anime: anime,
@@ -461,7 +448,7 @@ class _ListBody extends StatelessWidget {
           child: Dismissible(
             key: ValueKey(anime.id.toString()),
             direction: DismissDirection.endToStart,
-            background: _DismissBackground(fromEnd: true),
+            background: const _DismissBackground(fromEnd: true),
             onDismissed: (_) => onDelete(anime),
             child: AnimeListCard(
               anime: anime,
@@ -483,7 +470,7 @@ class _ListBody extends StatelessWidget {
 
 class _DismissBackground extends StatelessWidget {
   final bool fromEnd;
-  const _DismissBackground({this.fromEnd = false});
+  const _DismissBackground({this.fromEnd = false, super.key});
 
   @override
   Widget build(BuildContext context) {

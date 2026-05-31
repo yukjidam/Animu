@@ -1,5 +1,4 @@
 // lib/models/anime_model.dart
-// API-ready model — mirrors common Jikan / AniList response shapes.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -32,7 +31,6 @@ extension WatchStatusExtension on WatchStatus {
     }
   }
 
-  /// Parses a stored Firestore string back to the enum value.
   static WatchStatus fromString(String value) {
     return WatchStatus.values.firstWhere(
       (e) => e.name == value,
@@ -49,19 +47,23 @@ class AnimeModel {
   final String coverImageUrl;
   final String? bannerImageUrl;
   final String? synopsis;
-  final String? type; // TV, Movie, OVA, ONA …
+  final String? type;
   final int? episodes;
-  final String? status; // "Finished Airing", "Currently Airing" …
-  final double? score; // MAL / AniList community score
+  final String? status;
+  final double? score;
   final List<String> genres;
   final String? studio;
-  final String? season; // "Spring 2024"
+  final String? season;
   final int? year;
+  // MAL content rating code: 'g', 'pg', 'pg13', 'r17', 'r+', 'rx'
+  final String? rating;
+  // YouTube trailer URL — sourced from Jikan trailer.url or trailer.youtube_id
+  final String? trailerUrl;
 
   // User-specific fields
   WatchStatus? watchStatus;
-  double? userRating; // 0.0 – 5.0 in 0.5 steps
-  String? userEmojiRating; // e.g. "🔥", "💀", "❤️"
+  double? userRating;
+  String? userEmojiRating;
   String? userReview;
   DateTime? dateAdded;
   DateTime? dateFinished;
@@ -83,6 +85,8 @@ class AnimeModel {
     this.studio,
     this.season,
     this.year,
+    this.rating,
+    this.trailerUrl,
     this.watchStatus,
     this.userRating,
     this.userEmojiRating,
@@ -92,9 +96,8 @@ class AnimeModel {
     this.episodesWatched,
   });
 
-  // ── Factory: Jikan v4 /anime/{id} ─────────────────────────────────────────
+  // ── Factory: Jikan v4 ─────────────────────────────────────────────────────
   factory AnimeModel.fromJikan(Map<String, dynamic> json) {
-    final images = json['images']?['jpg'] as Map<String, dynamic>?;
     final genreList =
         (json['genres'] as List<dynamic>?)
             ?.map((g) => g['name'] as String)
@@ -104,13 +107,23 @@ class AnimeModel {
         ?.map((s) => s['name'] as String)
         .toList();
 
+    final trailer = json['trailer'] as Map<String, dynamic>?;
+    final trailerUrl =
+        trailer?['url'] as String? ??
+        (trailer?['youtube_id'] != null
+            ? 'https://www.youtube.com/watch?v=${trailer!['youtube_id']}'
+            : null);
+
     return AnimeModel(
       id: json['mal_id'] as int,
       title: json['title'] as String,
       titleEnglish: json['title_english'] as String?,
       titleJapanese: json['title_japanese'] as String?,
-      coverImageUrl: images?['image_url'] as String? ?? '',
-      bannerImageUrl: images?['large_image_url'] as String?,
+      coverImageUrl:
+          json['images']?['jpg']?['large_image_url'] as String? ??
+          json['images']?['jpg']?['image_url'] as String? ??
+          '',
+      bannerImageUrl: trailer?['images']?['maximum_image_url'] as String?,
       synopsis: json['synopsis'] as String?,
       type: json['type'] as String?,
       episodes: json['episodes'] as int?,
@@ -119,13 +132,15 @@ class AnimeModel {
       genres: genreList,
       studio: studioList?.isNotEmpty == true ? studioList!.first : null,
       season: json['season'] != null && json['year'] != null
-          ? '${_capitalize(json['season'] as String)} ${json['year']}'
+          ? '${json['season']} ${json['year']}'
           : null,
       year: json['year'] as int?,
+      rating: (json['rating'] as String?)?.split(' ').first.toLowerCase(),
+      trailerUrl: trailerUrl,
     );
   }
 
-  // ── Factory: AniList GraphQL ───────────────────────────────────────────────
+  // ── Factory: AniList GraphQL ──────────────────────────────────────────────
   factory AnimeModel.fromAniList(Map<String, dynamic> json) {
     final title = json['title'] as Map<String, dynamic>;
     final coverImage = json['coverImage'] as Map<String, dynamic>?;
@@ -158,15 +173,13 @@ class AnimeModel {
       genres: genreList,
       studio: mainStudio,
       season: json['season'] != null && json['seasonYear'] != null
-          ? '${_capitalize(json['season'] as String)} ${json['seasonYear']}'
+          ? '${json['season']} ${json['seasonYear']}'
           : null,
       year: json['seasonYear'] as int?,
     );
   }
 
-  // ── Firestore: write ───────────────────────────────────────────────────────
-  /// Converts this model to a Map for writing to Firestore.
-  /// addedAt / updatedAt are set by LibraryService via FieldValue.serverTimestamp().
+  // ── Firestore: write ──────────────────────────────────────────────────────
   Map<String, dynamic> toFirestore() => {
     'id': id,
     'title': title,
@@ -183,6 +196,8 @@ class AnimeModel {
     'studio': studio,
     'season': season,
     'year': year,
+    'rating': rating,
+    'trailerUrl': trailerUrl,
     'watchStatus': watchStatus?.name,
     'userRating': userRating,
     'userEmojiRating': userEmojiRating,
@@ -192,8 +207,7 @@ class AnimeModel {
     'episodesWatched': episodesWatched,
   };
 
-  // ── Firestore: read ────────────────────────────────────────────────────────
-  /// Constructs an AnimeModel from a Firestore document snapshot.
+  // ── Firestore: read ───────────────────────────────────────────────────────
   factory AnimeModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
     return AnimeModel(
@@ -212,6 +226,8 @@ class AnimeModel {
       studio: d['studio'] as String?,
       season: d['season'] as String?,
       year: d['year'] as int?,
+      rating: d['rating'] as String?,
+      trailerUrl: d['trailerUrl'] as String?,
       watchStatus: d['watchStatus'] != null
           ? WatchStatusExtension.fromString(d['watchStatus'])
           : null,
@@ -228,7 +244,7 @@ class AnimeModel {
     );
   }
 
-  // ── Serialise user data to your own backend ────────────────────────────────
+  // ── userDataToJson ────────────────────────────────────────────────────────
   Map<String, dynamic> userDataToJson() => {
     'anime_id': id,
     'watch_status': watchStatus?.name,
@@ -240,6 +256,7 @@ class AnimeModel {
     'episodes_watched': episodesWatched,
   };
 
+  // ── copyWith ──────────────────────────────────────────────────────────────
   AnimeModel copyWith({
     WatchStatus? watchStatus,
     double? userRating,
@@ -265,6 +282,8 @@ class AnimeModel {
       studio: studio,
       season: season,
       year: year,
+      rating: rating,
+      trailerUrl: trailerUrl,
       watchStatus: watchStatus ?? this.watchStatus,
       userRating: userRating ?? this.userRating,
       userEmojiRating: userEmojiRating ?? this.userEmojiRating,
@@ -274,7 +293,4 @@ class AnimeModel {
       episodesWatched: episodesWatched ?? this.episodesWatched,
     );
   }
-
-  static String _capitalize(String s) =>
-      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}';
 }

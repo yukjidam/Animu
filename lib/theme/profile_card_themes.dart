@@ -2,6 +2,7 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 // ─────────────────────────────────────────────
 //  Theme ID constants
@@ -94,45 +95,47 @@ class ThemedProfileCard extends StatefulWidget {
 }
 
 class _ThemedProfileCardState extends State<ThemedProfileCard>
-    with TickerProviderStateMixin {
-  late AnimationController _controller;
+    with SingleTickerProviderStateMixin {
+  late Ticker _ticker;
+  double _elapsed = 0.0; // continuously growing seconds, never resets
+  Duration _lastTick = Duration.zero;
+
+  // Notifier so painters can listen without a controller
+  final _timeNotifier = ValueNotifier<double>(0.0);
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
+    _ticker = createTicker((elapsed) {
+      final dt = (elapsed - _lastTick).inMicroseconds / 1e6;
+      _lastTick = elapsed;
+      _elapsed += dt;
+      _timeNotifier.value = _elapsed;
+    })..start();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ticker.dispose();
+    _timeNotifier.dispose();
     super.dispose();
   }
 
-  @override
-  void didUpdateWidget(ThemedProfileCard old) {
-    super.didUpdateWidget(old);
-    if (old.theme != widget.theme) {
-      _controller.reset();
-      _controller.repeat();
-    }
-  }
+  // No reset needed on theme change — elapsed just keeps going.
+  // didUpdateWidget intentionally omitted.
 
   CustomPainter? _painterForTheme() {
     switch (widget.theme) {
       case ProfileCardTheme.sakura:
-        return SakuraPainter(_controller);
+        return SakuraPainter(_timeNotifier);
       case ProfileCardTheme.edoWave:
-        return EdoWavePainter(_controller);
+        return EdoWavePainter(_timeNotifier);
       case ProfileCardTheme.torii:
-        return ToriiPainter(_controller);
+        return ToriiPainter(_timeNotifier);
       case ProfileCardTheme.bamboo:
-        return BambooPainter(_controller);
+        return BambooPainter(_timeNotifier);
       case ProfileCardTheme.tsuki:
-        return TsukiPainter(_controller);
+        return TsukiPainter(_timeNotifier);
       default:
         return null;
     }
@@ -180,9 +183,9 @@ class _ThemedProfileCardState extends State<ThemedProfileCard>
           children: [
             if (painter != null)
               Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _controller,
-                  builder: (_, __) => CustomPaint(painter: painter),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _timeNotifier,
+                  builder: (_, __, ___) => CustomPaint(painter: painter),
                 ),
               ),
             widget.child,
@@ -198,7 +201,7 @@ class _ThemedProfileCardState extends State<ThemedProfileCard>
 // ═════════════════════════════════════════════════════════════
 
 class SakuraPainter extends CustomPainter {
-  final Animation<double> animation;
+  final ValueNotifier<double> animation;
 
   static final _rng = Random(42);
 
@@ -252,16 +255,16 @@ class SakuraPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = animation.value;
+    final t = animation.value; // raw elapsed seconds, always growing
 
     for (int layer = 0; layer < _layers.length; layer++) {
       for (final p in _layers[layer]) {
-        final progress = (p.phase + t * p.speed * 12) % 1.0;
+        final progress = (p.phase + t * p.speed) % 1.0;
         final sway =
             sin(progress * 2 * pi + p.phase * 6) * p.drift * size.width;
         final x = p.x * size.width + sway;
         final y = progress * (size.height * 1.15) - size.height * 0.1;
-        final rot = p.phase * 2 * pi + t * p.rotSpeed * 2 * pi;
+        final rot = p.phase * 2 * pi + t * p.rotSpeed;
 
         final baseSize = 6.0 * p.scale;
 
@@ -346,7 +349,8 @@ class SakuraPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(SakuraPainter old) => true;
+  bool shouldRepaint(SakuraPainter old) =>
+      old.animation.value != animation.value;
 }
 
 class _PetalData {
@@ -368,12 +372,12 @@ class _PetalData {
 // ═════════════════════════════════════════════════════════════
 
 class EdoWavePainter extends CustomPainter {
-  final Animation<double> animation;
+  final ValueNotifier<double> animation;
   EdoWavePainter(this.animation) : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = animation.value;
+    final t = animation.value; // seconds
 
     // Sky gradient overlay
     final skyPaint = Paint()
@@ -485,9 +489,7 @@ class EdoWavePainter extends CustomPainter {
     final points = <Offset>[];
     for (double x = 0; x <= size.width; x += 1.5) {
       final phase =
-          (x / size.width) * w.freq * pi * 2 -
-          t * 2 * pi * w.speed +
-          w.phase * 2 * pi;
+          (x / size.width) * w.freq * pi * 2 - t * w.speed + w.phase * 2 * pi;
       final y =
           yBase +
           sin(phase) * w.amplitude +
@@ -545,7 +547,8 @@ class EdoWavePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(EdoWavePainter old) => true;
+  bool shouldRepaint(EdoWavePainter old) =>
+      old.animation.value != animation.value;
 }
 
 class _WaveDef {
@@ -569,12 +572,12 @@ class _WaveDef {
 // ═════════════════════════════════════════════════════════════
 
 class ToriiPainter extends CustomPainter {
-  final Animation<double> animation;
+  final ValueNotifier<double> animation;
   ToriiPainter(this.animation) : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = animation.value;
+    final t = animation.value; // seconds
 
     // God rays emanating from behind gate
     _drawGodRays(canvas, size, t);
@@ -593,7 +596,7 @@ class ToriiPainter extends CustomPainter {
 
     final rayCount = 8;
     for (int i = 0; i < rayCount; i++) {
-      final angle = (i / rayCount) * 2 * pi + t * 0.15;
+      final angle = (i / rayCount) * 2 * pi + t * 0.015;
       final len = size.width * 0.9;
       final rayPaint = Paint()
         ..shader = RadialGradient(
@@ -626,7 +629,7 @@ class ToriiPainter extends CustomPainter {
     final h = size.height * 0.62;
     final gateW = size.width * 0.42;
 
-    final shimmer = (sin(t * 2 * pi * 0.5) * 0.5 + 0.5);
+    final shimmer = (sin(t * 2 * pi * 0.05) * 0.5 + 0.5);
     final gateColor = Color.lerp(
       const Color(0xFFCC3300),
       const Color(0xFFFF6633),
@@ -740,7 +743,7 @@ class ToriiPainter extends CustomPainter {
 
     for (int i = 0; i < 14; i++) {
       final phase =
-          (rng.nextDouble() + t * (0.18 + rng.nextDouble() * 0.22)) % 1.0;
+          (rng.nextDouble() + t * (0.018 + rng.nextDouble() * 0.022)) % 1.0;
       final x =
           size.width * (0.45 + rng.nextDouble() * 0.45) +
           sin(phase * 4 * pi + i) * 8;
@@ -766,7 +769,8 @@ class ToriiPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(ToriiPainter old) => true;
+  bool shouldRepaint(ToriiPainter old) =>
+      old.animation.value != animation.value;
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -774,7 +778,7 @@ class ToriiPainter extends CustomPainter {
 // ═════════════════════════════════════════════════════════════
 
 class BambooPainter extends CustomPainter {
-  final Animation<double> animation;
+  final ValueNotifier<double> animation;
   BambooPainter(this.animation) : super(repaint: animation);
 
   static final _rng = Random(7);
@@ -793,7 +797,7 @@ class BambooPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = animation.value * 2 * pi;
+    final t = animation.value; // raw seconds
 
     // Mist / fog at bottom
     final mistPaint = Paint()
@@ -969,7 +973,8 @@ class BambooPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(BambooPainter old) => true;
+  bool shouldRepaint(BambooPainter old) =>
+      old.animation.value != animation.value;
 }
 
 class _BambooStalk {
@@ -991,7 +996,7 @@ class _BambooStalk {
 // ═════════════════════════════════════════════════════════════
 
 class TsukiPainter extends CustomPainter {
-  final Animation<double> animation;
+  final ValueNotifier<double> animation;
   TsukiPainter(this.animation) : super(repaint: animation);
 
   static final _rng = Random(5);
@@ -1020,21 +1025,22 @@ class TsukiPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = animation.value * 2 * pi;
+    final t = animation.value; // raw seconds — grows forever, no reset
+    final angT = t * (2 * pi / 10.0); // angular time: one full cycle per 10s
 
     // Stars
-    _drawStars(canvas, size, t);
+    _drawStars(canvas, size, angT);
 
     // Crescent moon
-    _drawMoon(canvas, size, t);
+    _drawMoon(canvas, size, angT);
 
     // Pagoda silhouette
     _drawPagoda(canvas, size);
 
     // Lanterns with strings
-    _drawLanternStrings(canvas, size, t);
+    _drawLanternStrings(canvas, size, angT);
     for (final l in _lanterns) {
-      _drawLantern(canvas, size, l, t);
+      _drawLantern(canvas, size, l, angT);
     }
   }
 
@@ -1293,7 +1299,8 @@ class TsukiPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(TsukiPainter old) => true;
+  bool shouldRepaint(TsukiPainter old) =>
+      old.animation.value != animation.value;
 }
 
 class _StarData {

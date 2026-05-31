@@ -14,7 +14,6 @@ import 'top_anime_screen.dart';
 
 class HomeContent extends StatefulWidget {
   final void Function(int index)? onNavigate;
-
   const HomeContent({super.key, this.onNavigate});
 
   @override
@@ -65,13 +64,10 @@ class _HomeContentState extends State<HomeContent> {
   void _subscribeToLibrary() {
     _librarySub = _libraryService.libraryStream().listen((library) {
       if (!mounted) return;
-
       final ongoing =
           library.where((a) => a.watchStatus == WatchStatus.ongoing).toList()
             ..shuffle(Random());
-
       final recent = library.take(6).toList();
-
       setState(() {
         _library = library;
         _ongoingShuffled = ongoing;
@@ -87,12 +83,10 @@ class _HomeContentState extends State<HomeContent> {
       _selectedFilter = filterIndex;
       _topLoading = true;
     });
-
     final data = await _api.getTopAnime(
       limit: 10,
       filter: _filters[filterIndex].filter,
     );
-
     if (!mounted) return;
     setState(() {
       _topAnime = data;
@@ -100,22 +94,19 @@ class _HomeContentState extends State<HomeContent> {
     });
   }
 
-  Future<void> _onRefresh() async {
-    await _loadTopAnime(_selectedFilter);
-  }
+  Future<void> _onRefresh() async => _loadTopAnime(_selectedFilter);
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: t.backgroundDark,
       appBar: _AnimuAppBar(),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryViolet),
-            )
+          ? Center(child: CircularProgressIndicator(color: t.primaryViolet))
           : RefreshIndicator(
-              color: AppTheme.primaryViolet,
-              backgroundColor: AppTheme.cardDark,
+              color: t.primaryViolet,
+              backgroundColor: t.cardDark,
               onRefresh: _onRefresh,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 24),
@@ -123,25 +114,25 @@ class _HomeContentState extends State<HomeContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildGreetingBanner(),
+                    _buildGreetingBanner(t),
                     const SizedBox(height: 24),
-                    // ── Continue Watching — no See All ────────────────────
                     _buildSection(
+                      t: t,
                       title: 'Continue Watching',
                       subtitle: 'Pick up where you left off',
                       showSeeAll: false,
-                      child: _OngoingCarousel(animes: _ongoingShuffled),
+                      child: _OngoingCarousel(animes: _ongoingShuffled, t: t),
                     ),
                     const SizedBox(height: 28),
-                    // ── Recently Added — See All → Library tab ────────────
                     _buildSection(
+                      t: t,
                       title: 'Recently Added',
                       subtitle: 'From your library',
                       onSeeAll: () => widget.onNavigate?.call(1),
                       child: _HorizontalAnimeScroll(animes: _recentlyAdded),
                     ),
                     const SizedBox(height: 28),
-                    _buildTopRankedSection(),
+                    _buildTopRankedSection(t),
                   ],
                 ),
               ),
@@ -149,9 +140,10 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  // ── Reusable section wrapper ───────────────────────────────────────────────
+  // ── Section wrapper ────────────────────────────────────────────────────────
 
   Widget _buildSection({
+    required AppThemeTokens t,
     required String title,
     required String subtitle,
     required Widget child,
@@ -191,11 +183,11 @@ class _HomeContentState extends State<HomeContent> {
               if (showSeeAll)
                 TextButton(
                   onPressed: onSeeAll,
-                  child: const Text(
+                  child: Text(
                     'See all',
                     style: TextStyle(
                       fontFamily: 'Nunito',
-                      color: AppTheme.primaryVioletLight,
+                      color: t.primaryVioletLight,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),
@@ -210,9 +202,9 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  // ── Top Ranked section ────────────────────────────────────────────────────
+  // ── Top Ranked section ─────────────────────────────────────────────────────
 
-  Widget _buildTopRankedSection() {
+  Widget _buildTopRankedSection(AppThemeTokens t) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -251,11 +243,11 @@ class _HomeContentState extends State<HomeContent> {
                         TopAnimeScreen(initialFilterIndex: _selectedFilter),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'See all',
                   style: TextStyle(
                     fontFamily: 'Nunito',
-                    color: AppTheme.primaryVioletLight,
+                    color: t.primaryVioletLight,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -286,17 +278,14 @@ class _HomeContentState extends State<HomeContent> {
                   ),
                   decoration: BoxDecoration(
                     gradient: selected
-                        ? const LinearGradient(
-                            colors: [
-                              AppTheme.primaryViolet,
-                              AppTheme.accentSakura,
-                            ],
+                        ? LinearGradient(
+                            colors: [t.primaryViolet, t.accentSakura],
                           )
                         : null,
-                    color: selected ? null : AppTheme.cardDark,
+                    color: selected ? null : t.cardDark,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: selected ? Colors.transparent : AppTheme.divider,
+                      color: selected ? Colors.transparent : t.divider,
                     ),
                   ),
                   child: Text(
@@ -316,12 +305,10 @@ class _HomeContentState extends State<HomeContent> {
         const SizedBox(height: 12),
 
         _topLoading
-            ? const SizedBox(
+            ? SizedBox(
                 height: 220,
                 child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppTheme.primaryViolet,
-                  ),
+                  child: CircularProgressIndicator(color: t.primaryViolet),
                 ),
               )
             : _HorizontalAnimeScroll(animes: _topAnime),
@@ -329,9 +316,9 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  // ── Greeting banner ───────────────────────────────────────────────────────
+  // ── Greeting banner ────────────────────────────────────────────────────────
 
-  Widget _buildGreetingBanner() {
+  Widget _buildGreetingBanner(AppThemeTokens t) {
     final hour = DateTime.now().hour;
     final greeting = hour < 12
         ? 'Good Morning'
@@ -346,16 +333,13 @@ class _HomeContentState extends State<HomeContent> {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2A1A5E), Color(0xFF1A1030)],
+        gradient: LinearGradient(
+          colors: [t.primaryViolet.withOpacity(0.25), t.backgroundDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.primaryViolet.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: t.primaryViolet.withOpacity(0.3), width: 1),
       ),
       child: Row(
         children: [
@@ -390,19 +374,19 @@ class _HomeContentState extends State<HomeContent> {
                     _StatChip(
                       label: '$_totalAnime',
                       sublabel: 'Total',
-                      color: AppTheme.primaryVioletLight,
+                      color: t.primaryVioletLight,
                     ),
                     const SizedBox(width: 8),
                     _StatChip(
                       label: '$_totalFinished',
                       sublabel: 'Done',
-                      color: AppTheme.accentCyan,
+                      color: t.accentCyan,
                     ),
                     const SizedBox(width: 8),
                     _StatChip(
                       label: '$_totalWatching',
                       sublabel: 'Watching',
-                      color: AppTheme.accentSakura,
+                      color: t.accentSakura,
                     ),
                   ],
                 ),
@@ -435,14 +419,15 @@ class _TopFilter {
 class _AnimuAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       titleSpacing: 16,
       title: RichText(
-        text: const TextSpan(
+        text: TextSpan(
           children: [
-            TextSpan(
+            const TextSpan(
               text: 'Animu ',
               style: TextStyle(
                 fontFamily: 'Nunito',
@@ -458,7 +443,7 @@ class _AnimuAppBar extends StatelessWidget implements PreferredSizeWidget {
                 fontFamily: 'Nunito',
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
-                color: AppTheme.primaryVioletLight,
+                color: t.primaryVioletLight,
               ),
             ),
           ],
@@ -566,7 +551,8 @@ class _HorizontalAnimeScroll extends StatelessWidget {
 
 class _OngoingCarousel extends StatelessWidget {
   final List<AnimeModel> animes;
-  const _OngoingCarousel({required this.animes});
+  final AppThemeTokens t;
+  const _OngoingCarousel({required this.animes, required this.t});
 
   @override
   Widget build(BuildContext context) {
@@ -576,9 +562,9 @@ class _OngoingCarousel extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppTheme.cardDark,
+            color: t.cardDark,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.divider),
+            border: Border.all(color: t.divider),
           ),
           child: const Row(
             children: [
@@ -603,7 +589,7 @@ class _OngoingCarousel extends StatelessWidget {
     if (animes.length == 1) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: _FullWidthCard(anime: animes.first),
+        child: _FullWidthCard(anime: animes.first, t: t),
       );
     }
 
@@ -614,7 +600,8 @@ class _OngoingCarousel extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: animes.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => _CompactCard(anime: animes[index]),
+        itemBuilder: (context, index) =>
+            _CompactCard(anime: animes[index], t: t),
       ),
     );
   }
@@ -624,7 +611,8 @@ class _OngoingCarousel extends StatelessWidget {
 
 class _FullWidthCard extends StatelessWidget {
   final AnimeModel anime;
-  const _FullWidthCard({required this.anime});
+  final AppThemeTokens t;
+  const _FullWidthCard({required this.anime, required this.t});
 
   @override
   Widget build(BuildContext context) {
@@ -640,7 +628,7 @@ class _FullWidthCard extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: t.cardDark,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppTheme.statusOngoing.withOpacity(0.35)),
         ),
@@ -653,8 +641,7 @@ class _FullWidthCard extends StatelessWidget {
                 fit: BoxFit.cover,
                 color: Colors.black.withOpacity(0.72),
                 colorBlendMode: BlendMode.darken,
-                errorBuilder: (_, __, ___) =>
-                    Container(color: AppTheme.cardElevated),
+                errorBuilder: (_, __, ___) => Container(color: t.cardElevated),
               ),
             ),
             Padding(
@@ -671,7 +658,7 @@ class _FullWidthCard extends StatelessWidget {
                         anime.coverImageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: AppTheme.cardElevated,
+                          color: t.cardElevated,
                           child: const Icon(
                             Icons.broken_image_rounded,
                             color: AppTheme.textMuted,
@@ -680,14 +667,14 @@ class _FullWidthCard extends StatelessWidget {
                         loadingBuilder: (_, child, p) {
                           if (p == null) return child;
                           return Container(
-                            color: AppTheme.cardElevated,
+                            color: t.cardElevated,
                             child: const Center(
                               child: SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
-                                  color: AppTheme.primaryViolet,
+                                  color: AppTheme.statusOngoing,
                                 ),
                               ),
                             ),
@@ -765,7 +752,7 @@ class _FullWidthCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
                                     value: progress,
-                                    backgroundColor: AppTheme.divider,
+                                    backgroundColor: t.divider,
                                     valueColor: const AlwaysStoppedAnimation(
                                       AppTheme.statusOngoing,
                                     ),
@@ -818,7 +805,8 @@ class _FullWidthCard extends StatelessWidget {
 
 class _CompactCard extends StatelessWidget {
   final AnimeModel anime;
-  const _CompactCard({required this.anime});
+  final AppThemeTokens t;
+  const _CompactCard({required this.anime, required this.t});
 
   @override
   Widget build(BuildContext context) {
@@ -835,7 +823,7 @@ class _CompactCard extends StatelessWidget {
         width: 280,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: t.cardDark,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppTheme.statusOngoing.withOpacity(0.3)),
         ),
@@ -850,7 +838,7 @@ class _CompactCard extends StatelessWidget {
                   anime.coverImageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: AppTheme.cardElevated,
+                    color: t.cardElevated,
                     child: const Icon(
                       Icons.broken_image_rounded,
                       color: AppTheme.textMuted,
@@ -860,14 +848,14 @@ class _CompactCard extends StatelessWidget {
                   loadingBuilder: (_, child, p) {
                     if (p == null) return child;
                     return Container(
-                      color: AppTheme.cardElevated,
+                      color: t.cardElevated,
                       child: const Center(
                         child: SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 1.5,
-                            color: AppTheme.primaryViolet,
+                            color: AppTheme.statusOngoing,
                           ),
                         ),
                       ),
@@ -899,7 +887,7 @@ class _CompactCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: progress,
-                        backgroundColor: AppTheme.divider,
+                        backgroundColor: t.divider,
                         valueColor: const AlwaysStoppedAnimation(
                           AppTheme.statusOngoing,
                         ),

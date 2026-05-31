@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/anime_model.dart';
 import '../../services/anime_api_service.dart';
 import '../../services/library_service.dart';
+import '../../services/safebooru_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/star_rating.dart';
@@ -20,7 +21,8 @@ class AnimeDetailScreen extends StatefulWidget {
 class _AnimeDetailScreenState extends State<AnimeDetailScreen> {
   late AnimeModel _anime;
   final _api = AnimeApiService();
-  final _library = LibraryService(); // ← added
+  final _library = LibraryService();
+  final _safebooru = SafebooruService();
 
   @override
   void initState() {
@@ -36,9 +38,7 @@ class _AnimeDetailScreenState extends State<AnimeDetailScreen> {
       );
     });
 
-    // ── Save to Firestore via LibraryService ──────────────────────────
     await _library.addAnime(_anime);
-    // ─────────────────────────────────────────────────────────────────
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -53,6 +53,20 @@ class _AnimeDetailScreenState extends State<AnimeDetailScreen> {
         ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ── Open gallery modal ─────────────────────────────────────────────────────
+
+  void _openGallery() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GalleryModal(
+        animeName: _anime.titleEnglish ?? _anime.title,
+        safebooru: _safebooru,
       ),
     );
   }
@@ -74,6 +88,11 @@ class _AnimeDetailScreenState extends State<AnimeDetailScreen> {
                   const SizedBox(height: 16),
                   _buildMetaChips(),
                   const SizedBox(height: 20),
+
+                  // ── Gallery button ──────────────────────────────
+                  _GalleryButton(onTap: _openGallery),
+                  const SizedBox(height: 20),
+
                   _buildWatchStatusSelector(),
                   const SizedBox(height: 20),
                   if (_anime.synopsis != null) _buildSynopsis(),
@@ -364,7 +383,388 @@ class _AnimeDetailScreenState extends State<AnimeDetailScreen> {
   }
 }
 
-// ── Supporting widgets (unchanged) ────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Gallery button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GalleryButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _GalleryButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppTheme.primaryViolet.withOpacity(0.15),
+              AppTheme.accentSakura.withOpacity(0.10),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.primaryViolet.withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryViolet.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.photo_library_rounded,
+                color: AppTheme.primaryVioletLight,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fan Art Gallery',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Browse fan art & anime images',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 11,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gallery modal
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GalleryModal extends StatefulWidget {
+  final String animeName;
+  final SafebooruService safebooru; // ← changed
+  const _GalleryModal({required this.animeName, required this.safebooru});
+
+  @override
+  State<_GalleryModal> createState() => _GalleryModalState();
+}
+
+class _GalleryModalState extends State<_GalleryModal> {
+  List<String> _images = [];
+  bool _loading = true;
+  bool _empty = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final results = await widget.safebooru.searchImages(
+      widget.animeName,
+    ); // ← changed
+    if (!mounted) return;
+    setState(() {
+      _images = results;
+      _loading = false;
+      _empty = results.isEmpty;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.88,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.backgroundDark,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            // ── Handle ──────────────────────────────────────────────
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Header ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.photo_library_rounded,
+                    color: AppTheme.primaryVioletLight,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${widget.animeName} Gallery',
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: AppTheme.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: AppTheme.textMuted,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const SizedBox(width: 30),
+                  Text(
+                    _loading
+                        ? 'Loading...'
+                        : _empty
+                        ? 'No images found'
+                        : '${_images.length} images found',
+                    style: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 11,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Content ─────────────────────────────────────────────
+            Expanded(
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.primaryViolet,
+                      ),
+                    )
+                  : _empty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('🖼️', style: TextStyle(fontSize: 48)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No images found for\n"${widget.animeName}"',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontFamily: 'Nunito',
+                              color: AppTheme.textMuted,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : GridView.builder(
+                      controller: controller,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 0.75,
+                          ),
+                      itemCount: _images.length,
+                      itemBuilder: (context, index) => _GalleryImageTile(
+                        url: _images[index],
+                        onTap: () => _openFullscreen(index),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openFullscreen(int startIndex) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            _FullscreenGallery(images: _images, initialIndex: startIndex),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gallery image tile
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GalleryImageTile extends StatelessWidget {
+  final String url;
+  final VoidCallback onTap;
+  const _GalleryImageTile({required this.url, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : Container(
+                  color: AppTheme.cardDark,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primaryViolet,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+          errorBuilder: (_, __, ___) => Container(
+            color: AppTheme.cardDark,
+            child: const Center(
+              child: Icon(
+                Icons.broken_image_rounded,
+                color: AppTheme.textMuted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fullscreen gallery viewer
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FullscreenGallery extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+  const _FullscreenGallery({required this.images, required this.initialIndex});
+
+  @override
+  State<_FullscreenGallery> createState() => _FullscreenGalleryState();
+}
+
+class _FullscreenGalleryState extends State<_FullscreenGallery> {
+  late final PageController _pageCtrl;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _pageCtrl = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          '${_current + 1} / ${widget.images.length}',
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _pageCtrl,
+        itemCount: widget.images.length,
+        onPageChanged: (i) => setState(() => _current = i),
+        itemBuilder: (_, index) => InteractiveViewer(
+          child: Center(
+            child: Image.network(
+              widget.images[index],
+              fit: BoxFit.contain,
+              loadingBuilder: (_, child, progress) => progress == null
+                  ? child
+                  : const Center(
+                      child: CircularProgressIndicator(color: Colors.white54),
+                    ),
+              errorBuilder: (_, __, ___) => const Center(
+                child: Icon(
+                  Icons.broken_image_rounded,
+                  color: Colors.white38,
+                  size: 48,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unchanged supporting widgets
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _FilledReviewPreview extends StatelessWidget {
   final AnimeModel anime;

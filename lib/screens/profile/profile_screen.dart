@@ -1,5 +1,3 @@
-// lib/screens/profile/profile_screen.dart
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
@@ -17,6 +15,7 @@ import '../../widgets/common/ani_app_bar.dart';
 import '../../widgets/common/star_rating.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/profile/profile_theme_picker.dart';
+import '../../widgets/search/top_users_section.dart';
 import '../detail/anime_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -74,12 +73,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final doc = await _firestore.collection('users').doc(uid).get();
       final themeId = doc.data()?['profileCardTheme'] as String?;
       if (!mounted) return;
-      setState(() {
-        _cardTheme = ProfileCardThemeX.fromId(themeId);
-      });
-    } catch (_) {
-      // Silently fall back to default
-    }
+      setState(() => _cardTheme = ProfileCardThemeX.fromId(themeId));
+    } catch (_) {}
   }
 
   Future<void> _saveTheme(ProfileCardTheme theme) async {
@@ -89,9 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _firestore.collection('users').doc(uid).set({
         'profileCardTheme': theme.id,
       }, SetOptions(merge: true));
-    } catch (_) {
-      // Non-critical — UI already updated optimistically
-    }
+    } catch (_) {}
   }
 
   Future<void> _openThemePicker() async {
@@ -108,7 +101,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _animeList = data;
         _loading = false;
       });
+      _syncStatsToFirestore(data);
     });
+  }
+
+  Future<void> _syncStatsToFirestore(List<AnimeModel> data) async {
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final watchedCount = data
+          .where((a) => a.watchStatus == WatchStatus.finished)
+          .length;
+      final reviewCount = data
+          .where(
+            (a) => a.userRating != null || (a.userReview?.isNotEmpty == true),
+          )
+          .length;
+      await _firestore.collection('users').doc(uid).set({
+        'watchedCount': watchedCount,
+        'reviewCount': reviewCount,
+        'displayName': _displayName,
+        'displayNameLower': _displayName?.toLowerCase(),
+        'photoURL': _firebaseAuth.currentUser?.photoURL,
+      }, SetOptions(merge: true));
+    } catch (_) {}
   }
 
   int get _totalWatched =>
@@ -130,146 +146,148 @@ class _ProfileScreenState extends State<ProfileScreen> {
       .toList();
 
   Future<void> _editName() async {
+    final t = AppTheme.of(context);
     final controller = TextEditingController(text: _displayName ?? '');
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: AppTheme.cardDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryViolet.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.edit_rounded,
-                      color: AppTheme.primaryViolet,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Edit Display Name',
-                    style: TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                maxLength: 30,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Your display name',
-                  hintStyle: const TextStyle(
-                    fontFamily: 'Nunito',
-                    color: AppTheme.textMuted,
-                  ),
-                  filled: true,
-                  fillColor: AppTheme.backgroundDark,
-                  counterStyle: const TextStyle(
-                    fontFamily: 'Nunito',
-                    color: AppTheme.textMuted,
-                    fontSize: 11,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppTheme.divider),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primaryViolet,
-                      width: 1.5,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppTheme.divider),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(ctx),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundDark,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppTheme.divider),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontFamily: 'Nunito',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(ctx, controller.text.trim()),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              AppTheme.primaryViolet,
-                              AppTheme.accentSakura,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Save',
-                            style: TextStyle(
-                              fontFamily: 'Nunito',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: t.cardDark,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
-        ),
-      ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: t.primaryViolet.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.edit_rounded,
+                        color: t.primaryViolet,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Edit Display Name',
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  maxLength: 30,
+                  style: const TextStyle(
+                    fontFamily: 'Nunito',
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Your display name',
+                    hintStyle: const TextStyle(
+                      fontFamily: 'Nunito',
+                      color: AppTheme.textMuted,
+                    ),
+                    filled: true,
+                    fillColor: t.backgroundDark,
+                    counterStyle: const TextStyle(
+                      fontFamily: 'Nunito',
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: t.divider),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(
+                        color: t.primaryViolet,
+                        width: 1.5,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: t.divider),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: t.backgroundDark,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: t.divider),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(ctx, controller.text.trim()),
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [t.primaryViolet, t.accentSakura],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Save',
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
     if (result != null && result.isNotEmpty) {
@@ -278,6 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _firebaseAuth.currentUser?.reload();
         if (!mounted) return;
         setState(() => _displayName = result);
+        _syncStatsToFirestore(_animeList);
         _showSnack('Display name updated!');
       } catch (e) {
         if (!mounted) return;
@@ -293,17 +312,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 85,
       );
       if (picked == null) return;
-
       final user = _firebaseAuth.currentUser;
       if (user == null) return;
-
       if (!mounted) return;
       setState(() => _uploadingPhoto = true);
 
       final bytes = await File(picked.path).readAsBytes();
-      if (bytes.length > 20 * 1024 * 1024) {
+      if (bytes.length > 20 * 1024 * 1024)
         throw Exception('Image too large. Please choose a smaller one.');
-      }
 
       final base64Image = base64Encode(bytes);
       const apiKey = 'bc6c02ea66a214f0b1e89af25c1c7db7';
@@ -311,15 +327,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Uri.parse('https://api.imgbb.com/1/upload?key=$apiKey'),
         body: {'image': base64Image},
       );
-
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200)
         throw Exception('Upload failed (HTTP ${response.statusCode})');
-      }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      if (data['success'] != true) {
+      if (data['success'] != true)
         throw Exception(data['error']?['message'] ?? 'Upload failed');
-      }
 
       final imageUrl =
           data['data']?['display_url'] as String? ??
@@ -328,12 +341,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await user.updatePhotoURL(imageUrl);
       await user.reload();
-
       if (!mounted) return;
       setState(() {
         _photoURL = imageUrl;
         _uploadingPhoto = false;
       });
+      _syncStatsToFirestore(_animeList);
       _showSnack('Profile photo updated!');
     } catch (e) {
       if (!mounted) return;
@@ -343,6 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showSnack(String message, {bool isError = false}) {
+    final t = AppTheme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -352,9 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: isError
-            ? AppTheme.statusDropped
-            : AppTheme.primaryViolet,
+        backgroundColor: isError ? AppTheme.statusDropped : t.primaryViolet,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -364,11 +376,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: t.backgroundDark,
       appBar: AniAppBar(
         title: 'Profile',
         actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.person_search_rounded,
+              color: AppTheme.textSecondary,
+            ),
+            tooltip: 'Search users',
+            onPressed: () =>
+                showSearch(context: context, delegate: UserSearchDelegate()),
+          ),
           IconButton(
             icon: const Icon(
               Icons.settings_rounded,
@@ -383,12 +405,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryViolet),
-            )
+          ? Center(child: CircularProgressIndicator(color: t.primaryViolet))
           : RefreshIndicator(
-              color: AppTheme.primaryViolet,
-              backgroundColor: AppTheme.cardDark,
+              color: t.primaryViolet,
+              backgroundColor: t.cardDark,
               onRefresh: () async {},
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
@@ -396,12 +416,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildProfileCard(),
+                    _buildProfileCard(t),
                     const SizedBox(height: 20),
-                    _buildStatsGrid(),
+                    _buildStatsGrid(t),
                     const SizedBox(height: 24),
                     if (_reviewed.isNotEmpty) ...[
-                      _buildReviewedSection(),
+                      _buildReviewedSection(t),
                       const SizedBox(height: 24),
                     ],
                   ],
@@ -411,14 +431,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildProfileCard(AppThemeTokens t) {
     return ThemedProfileCard(
       theme: _cardTheme,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            // Avatar
             GestureDetector(
               onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
               child: Stack(
@@ -427,8 +446,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.primaryViolet, AppTheme.accentSakura],
+                      gradient: LinearGradient(
+                        colors: [t.primaryViolet, t.accentSakura],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -467,12 +486,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 22,
                         height: 22,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryViolet,
+                          color: t.primaryViolet,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: const Color(0xFF1E1540),
-                            width: 2,
-                          ),
+                          border: Border.all(color: t.backgroundDark, width: 2),
                         ),
                         child: const Icon(
                           Icons.camera_alt_rounded,
@@ -485,7 +501,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(width: 16),
-            // Name + stats
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,7 +544,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            // Edit column — name + theme
             Column(
               children: [
                 IconButton(
@@ -556,7 +570,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(AppThemeTokens t) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -583,24 +597,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               value: '$_totalWatched',
               label: 'Completed',
               color: AppTheme.statusFinished,
+              cardColor: t.cardDark,
             ),
             _StatCard(
               emoji: '▶️',
               value: '$_totalOngoing',
               label: 'Watching',
               color: AppTheme.statusOngoing,
+              cardColor: t.cardDark,
             ),
             _StatCard(
               emoji: '📋',
               value: '$_totalPtw',
               label: 'Plan to Watch',
               color: AppTheme.statusPlanToWatch,
+              cardColor: t.cardDark,
             ),
             _StatCard(
               emoji: '✍️',
               value: '${_reviewed.length}',
               label: 'Reviews',
-              color: AppTheme.accentSakura,
+              color: t.accentSakura,
+              cardColor: t.cardDark,
             ),
           ],
         ),
@@ -608,7 +626,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildReviewedSection() {
+  Widget _buildReviewedSection(AppThemeTokens t) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -625,6 +643,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ..._reviewed.map(
           (anime) => _ReviewCard(
             anime: anime,
+            t: t,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -645,12 +664,14 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
+  final Color cardColor;
 
   const _StatCard({
     required this.emoji,
     required this.value,
     required this.label,
     required this.color,
+    required this.cardColor,
   });
 
   @override
@@ -658,7 +679,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
@@ -700,9 +721,14 @@ class _StatCard extends StatelessWidget {
 
 class _ReviewCard extends StatelessWidget {
   final AnimeModel anime;
+  final AppThemeTokens t;
   final VoidCallback onTap;
 
-  const _ReviewCard({required this.anime, required this.onTap});
+  const _ReviewCard({
+    required this.anime,
+    required this.t,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -712,9 +738,9 @@ class _ReviewCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: t.cardDark,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.divider),
+          border: Border.all(color: t.divider),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,11 +755,8 @@ class _ReviewCard extends StatelessWidget {
                     width: 36,
                     height: 50,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 36,
-                      height: 50,
-                      color: AppTheme.cardElevated,
-                    ),
+                    errorBuilder: (_, __, ___) =>
+                        Container(width: 36, height: 50, color: t.cardElevated),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -775,7 +798,7 @@ class _ReviewCard extends StatelessWidget {
             ),
             if (anime.userReview != null && anime.userReview!.isNotEmpty) ...[
               const SizedBox(height: 10),
-              const Divider(color: AppTheme.divider, height: 1),
+              Divider(color: t.divider, height: 1),
               const SizedBox(height: 10),
               Text(
                 anime.userReview!,

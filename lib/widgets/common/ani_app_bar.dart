@@ -19,6 +19,7 @@ class AniAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTheme.of(context);
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -31,8 +32,8 @@ class AniAppBar extends StatelessWidget implements PreferredSizeWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.primaryViolet, AppTheme.accentSakura],
+                    gradient: LinearGradient(
+                      colors: [t.primaryViolet, t.accentSakura],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
